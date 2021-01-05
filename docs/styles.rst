@@ -21,6 +21,7 @@ The styles iommi ships with are:
     bulma
     foundation
     semantic_ui
+    uikit
     water
     django_admin
 

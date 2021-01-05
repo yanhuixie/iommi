@@ -170,7 +170,9 @@ class Fragment(Part, Tag):
         super().on_refine_done()
         refine_done_members(self, name='children', members_from_namespace=self.iommi_namespace.children, cls=Fragment, unknown_types_fall_through=True)
 
-    def render_text_or_children(self, context):
+    def render_text_or_children(self, context=None):
+        if context is None:
+            context = self.get_context()
         request = self.get_request()
         return format_html(
             '{}' * len(self.children),
