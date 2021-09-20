@@ -255,10 +255,11 @@ def choice_is_valid(field, parsed_data, **_):
 
 
 def choice_parse(form, field, string_value):
-    for c in field.choices:
-        option = field._choice_to_option_shim(form=form, field=field, choice=c)
-        if option[1] == string_value:
-            return option[0]
+    parameters = field.iommi_evaluate_parameters()
+    for choice in field.choices:
+        choice_id = field.choice_id_formatter(choice=choice, **parameters)
+        if choice_id == string_value:
+            return choice
 
     if string_value in [None, '']:
         return None
@@ -300,11 +301,11 @@ def choice_queryset__endpoint_handler(*, form, field, value, page_size=40, **_):
 
 def choice_queryset__extra__model_from_choices(form, field, choices):
     def traverse():
+        parameters = field.iommi_evaluate_parameters()
         for choice in choices:
-            option = field._choice_to_option_shim(form=form, field=field, choice=choice)
             yield Struct(
-                id=option[1],
-                text=option[2],
+                id=field.choice_id_formatter(choice=choice, **parameters),
+                text=field.choice_display_name_formatter(choice=choice, **parameters),
             )
 
     return list(traverse())
@@ -511,7 +512,6 @@ class Field(Part, Tag):
 
     # choices is evaluated, but in a special way so gets no EvaluatedRefinable type
     choices: Callable[..., List[Any]] = Refinable()
-    choice_to_option: Callable[..., Tuple[Any, str, str, bool]] = Refinable()  # deprecated, replaced by the two below:
     choice_id_formatter: Callable[..., str] = Refinable()
     choice_display_name_formatter: Callable[..., str] = Refinable()
     choice_to_optgroup: Optional[Callable[..., Optional[str]]] = Refinable()
@@ -583,7 +583,6 @@ class Field(Part, Tag):
         :param is_list: Interpret request data as a list (can NOT be a callable). Default: `False``
         :param read_from_instance: Callback to retrieve value from edited instance. Invoked with parameters field and instance.
         :param write_to_instance: Callback to write value to instance. Invoked with parameters field, instance and value.
-        :param choice_to_option: DEPRECATED: Callback to generate the choice data given a choice value. It will get the keyword arguments `form`, `field` and `choice`. It should return a 4-tuple: `(choice, internal_value, display_name, is_selected)` It is deprecated since it was too complicated and did too much, and has been replaced with `choice_id_formatter` and `choice_display_name_formatter`.
         :param choice_id_formatter: Callback given the keyword argument `choice` in addition to standard parameters, to obtain the string value to represent the identity of a given `choice`. Default implementation will use `str(choice)`
         :param choice_display_name_formatter: Callback given the keyword argument `choice` in addition to standard parameters, to obtain the display name representing a given choice to the end user. Default implementation will use `str(choice)`
         :param choice_to_optgroup Callback to generate the optgroup for the given choice. It will get the keyword argument `choice`. It should return None if the choice should not be grouped.
@@ -841,24 +840,18 @@ class Field(Part, Tag):
             return self.raw_data
         return self.render_value(form=self.form, field=self, value=self.value)
 
-    def _choice_to_option_shim(self, form, field, choice):
-        if self.choice_to_option is not None:
-            warnings.warn(
-                'Field.choice_to_option is deprecated. It was too complicated and did too much, and has been replaced with choice_id_formatter and choice_display_name_formatter. You normally just want to override choice_display_name_formatter and leave the other as their default.',
-                category=DeprecationWarning,
-            )
-            return self.choice_to_option(form=form, field=field, choice=choice)
-
+    def _choice_to_option_tuple(self, field, choice):
         if not field.is_list:
             is_selected = choice == field.value
         else:
             is_selected = field.value is not None and choice in field.value
 
+        parameters = self.iommi_evaluate_parameters()
         # The legacy structure is `(choice, id, display_name, is_selected)`
         return (
             choice,
-            self.choice_id_formatter(choice=choice, **self.iommi_evaluate_parameters()),
-            self.choice_display_name_formatter(choice=choice, **self.iommi_evaluate_parameters()),
+            self.choice_id_formatter(choice=choice, **parameters),
+            self.choice_display_name_formatter(choice=choice, **parameters),
             is_selected,
         )
 
@@ -868,9 +861,9 @@ class Field(Part, Tag):
             return []
 
         if self.is_list:
-            return [self._choice_to_option_shim(form=self.form, field=self, choice=v) for v in self.value]
+            return [self._choice_to_option_tuple(field=self, choice=v) for v in self.value]
         else:
-            return [self._choice_to_option_shim(form=self.form, field=self, choice=self.value)]
+            return [self._choice_to_option_tuple(field=self, choice=self.value)]
 
     @property
     def choice_tuples(self):
@@ -878,7 +871,7 @@ class Field(Part, Tag):
         if not self.required and not self.is_list:
             result.append(self.empty_choice_tuple + (0,))
         for i, choice in enumerate(self.choices):
-            result.append(self._choice_to_option_shim(form=self.form, field=self, choice=choice) + (i + 1,))
+            result.append(self._choice_to_option_tuple(field=self, choice=choice) + (i + 1,))
 
         return result
 
@@ -1018,7 +1011,6 @@ class Field(Part, Tag):
     def choice(cls, call_target=None, **kwargs):
         """
         Shortcut for single choice field. If required is false it will automatically add an option first with the value '' and the title '---'. To override that text pass in the parameter empty_label.
-        :param choice_to_option: callable with three arguments: form, field, choice. Convert from a choice object to a tuple of (choice, value, label, selected), the last three for the <option> element
         """
         assert 'choices' in kwargs, 'To use Field.choice, you must pass the choices list'
 
