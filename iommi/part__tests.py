@@ -1,5 +1,8 @@
+import functools
+
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from tri_declarative import class_shortcut
 from tri_struct import Struct
 
 from iommi import (
@@ -12,7 +15,7 @@ from iommi.part import (
     as_html,
     get_title,
     render_root,
-    request_data,
+    request_data, Part,
 )
 from iommi.style import Style
 from iommi.style_base import base

@@ -297,7 +297,7 @@ request = req('get')
                     w(0, '')
                     w(0, '')
 
-                defaults = shortcut if isinstance(shortcut, dict) else shortcut.dispatch
+                defaults = shortcut if isinstance(shortcut, dict) else getattr(shortcut, 'dispatch', {})
                 if defaults:
                     defaults = Namespace(defaults)
                     section(3, 'Defaults')

@@ -1,4 +1,5 @@
 from copy import copy
+from typing import List, Tuple
 
 from tri_declarative import (
     declarative,
@@ -19,81 +20,81 @@ def prefixes(path):
         yield '__'.join(parts[: i + 1])
 
 
-class RefinedNamespace(Namespace):
-    __iommi_refined_description: str
-    __iommi_refined_parent: Namespace
-    __iommi_refined_params: Namespace
-    __iommi_refined_defaults: bool
+priorities = [
+    'refine defaults',
+    'table defaults',
+    'member defaults',
+    'constructor',
+    'shortcut',
+    'style',
+    'base',
+    'member',
+    'refine',
+]
 
-    def __init__(self, description, parent, defaults=False, *args, **kwargs):
+
+class RefinedNamespace(Namespace):
+    __iommi_refined_stack: List[Tuple[int, Namespace, str]]
+
+    def __init__(self, _description, _parent, _defaults=False, *args, **kwargs):
         params = Namespace(*args, **kwargs)
-        object.__setattr__(self, '__iommi_refined_description', description)
-        object.__setattr__(self, '__iommi_refined_parent', parent)
-        object.__setattr__(self, '__iommi_refined_params', params)
-        object.__setattr__(self, '__iommi_refined_defaults', defaults)
-        missing = object()
-        if defaults:
-            default_updates = Namespace()
-            updates = Namespace()
-            for path, value in items(flatten(params)):
-                found = False
-                for prefix in prefixes(path):
-                    existing = getattr_path(parent, prefix, missing)
-                    if existing is missing:
-                        break
-                    if isinstance(existing, RefinableObject):
-                        new_defaults = getattr_path(params, prefix)
-                        if isinstance(new_defaults, dict):
-                            existing = existing.refine_defaults(**new_defaults)
-                            updates.setitem_path(prefix, existing)
-                        else:
-                            # We got an entire object here, so throw the rest away!
-                            pass
-                        found = True
-                if not found:
-                    default_updates.setitem_path(path, value)
-            super().__init__(default_updates, parent, updates)
+
+        if isinstance(_parent, RefinedNamespace):
+            parent_stack = object.__getattribute__(_parent, '__iommi_refined_stack')
         else:
-            updates = Namespace()
+            parent_stack = [(priorities.index('base'), _parent, 'base')]
+
+        if _description not in priorities:
+            if _defaults:
+                prio = -1
+            else:
+                prio = len(priorities)
+        else:
+            prio = priorities.index(_description)
+
+        if _defaults:
+            stack = [(prio, params, _description)] + parent_stack
+        else:
+            stack = parent_stack + [(prio, params, _description)]
+
+        stack.sort(key=lambda x: x[0])
+
+        object.__setattr__(self, '__iommi_refined_stack', stack)
+        missing = object()
+
+        super(RefinedNamespace, self).__init__()
+
+        for _description, params, _ in stack:
             for path, value in items(flatten(params)):
                 found = False
                 for prefix in prefixes(path):
-                    existing = getattr_path(parent, prefix, missing)
+                    existing = getattr_path(self, prefix, missing)
                     if existing is missing:
                         break
+                    new_updates = getattr_path(params, prefix)
+
                     if isinstance(existing, RefinableObject):
-                        new_updates = getattr_path(params, prefix)
                         if isinstance(new_updates, dict):
-                            existing = existing.refine(**new_updates)
+                            existing = existing._refine(_description=_description, _defaults=False, **new_updates)
                         else:
                             existing = new_updates
-                        updates.setitem_path(prefix, existing)
+                        self.setitem_path(prefix, existing)
                         found = True
+
+                    if isinstance(new_updates, RefinableObject):
+                        if isinstance(existing, dict):
+                            new_updates = new_updates._refine(_description=_description, _defaults=True, **existing)
+                        self.setitem_path(prefix, new_updates)
+                        found = True
+
                 if not found:
-                    updates.setitem_path(path, value)
-            super().__init__(parent, updates)
+                    self.setitem_path(path, value)
 
     def as_stack(self):
-        refinements = []
-        default_refinements = []
-        node = self
-
-        while isinstance(node, RefinedNamespace):
-            try:
-                description = object.__getattribute__(node, '__iommi_refined_description')
-                parent = object.__getattribute__(node, '__iommi_refined_parent')
-                delta = object.__getattribute__(node, '__iommi_refined_params')
-                defaults = object.__getattribute__(node, '__iommi_refined_defaults')
-                value = (description, flatten(delta))
-                if defaults:
-                    default_refinements = default_refinements + [value]
-                else:
-                    refinements = [value] + refinements
-                node = parent
-            except AttributeError:
-                break
-
-        return default_refinements + [('base', flatten(node))] + refinements
+        return [
+            (description, flatten(params))
+            for _, params, description in object.__getattribute__(self, '__iommi_refined_stack')
+        ]
 
 
 def is_refinable_function(attr):
@@ -125,7 +126,6 @@ def is_evaluated_refinable(x):
     add_init_kwargs=False,
 )
 class RefinableObject:
-
     iommi_namespace: Namespace
     is_refine_done: bool
 
@@ -206,15 +206,37 @@ Available attributes:
         pass
 
     def refine(self, **args):
-        assert not self.is_refine_done, f"Already called refine_done on {self!r}"
-        result = copy(self)
-        result.iommi_namespace = RefinedNamespace('refine', self.iommi_namespace, **args)
-        return result
+        return self._refine(_description='refine', _defaults=False, **args)
 
     def refine_defaults(self, **args):
+        return self._refine(_description='refine defaults', _defaults=True, **args)
+
+    def refine_from_constructor(self, **args):
+        self._refine(_description='constructor', _defaults=False, _inplace=True, **args)
+
+    def refine_from_member(self, **args):
+        return self._refine(_description='member', _defaults=False, **args)
+
+    def refine_from_member_defaults(self, **args):
+        return self._refine(_description='member defaults', _defaults=True, **args)
+
+    def refine_from_shortcut(self, **args):
+        return self._refine(_description='shortcut', _defaults=True, **args)
+
+    def refine_from_table_defaults(self, **args):
+        return self._refine(_description='table defaults', _defaults=True, **args)
+
+    def refine_from_style(self, **args):
+        return self._refine(_description='style', _defaults=True, **args)
+
+    def _refine(self, _description, _defaults, _inplace=False, **args):
         assert not self.is_refine_done, f"Already called refine_done on {self!r}"
-        result = copy(self)
-        result.iommi_namespace = RefinedNamespace('refine defaults', self.iommi_namespace, defaults=True, **args)
+        if _inplace:
+            result = self
+        else:
+            result = copy(self)
+
+        result.iommi_namespace = RefinedNamespace(_description, self.iommi_namespace, _defaults=_defaults, **args)
         return result
 
     def __repr__(self):

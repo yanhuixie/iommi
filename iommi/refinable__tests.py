@@ -239,16 +239,16 @@ def test_refined_namespace():
 
 def test_refined_defaults():
     base = Namespace(a=1, b=2)
-    refined = RefinedNamespace('refinement', base, defaults=True, b=3, c=4)
+    refined = RefinedNamespace('refinement', base, _defaults=True, b=3, c=4)
     assert refined == Namespace(a=1, b=2, c=4)
 
 
 def test_refined_as_stack():
     namespace = Namespace(a=1)
     namespace = RefinedNamespace('refinement', namespace, b=2)
-    namespace = RefinedNamespace('defaults refinement', namespace, defaults=True, c=3)
+    namespace = RefinedNamespace('defaults refinement', namespace, _defaults=True, c=3)
     namespace = RefinedNamespace('further refinement', namespace, d=4)
-    namespace = RefinedNamespace('further defaults refinement', namespace, defaults=True, e=5)
+    namespace = RefinedNamespace('further defaults refinement', namespace, _defaults=True, e=5)
     assert namespace == dict(a=1, b=2, c=3, d=4, e=5)
     assert namespace.as_stack() == [
         ('further defaults refinement', {'e': 5}),

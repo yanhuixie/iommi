@@ -721,7 +721,7 @@ class Query(Part):
                 continue
             # We need to check if it's in declared_filters first, otherwise we remove any injected fields
             if name in declared_filters and name not in self.iommi_namespace.filters:
-                declared_fields[name] = field.refine(include=False)
+                declared_fields[name] = field.refine_from_query(include=False)
 
         form_args = self.form
 

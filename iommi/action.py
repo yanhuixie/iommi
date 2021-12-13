@@ -11,7 +11,7 @@ from tri_declarative import (
     class_shortcut,
     dispatch,
     EMPTY,
-    Refinable,
+    Namespace, Refinable,
     setdefaults_path,
     with_meta,
 )
@@ -32,6 +32,7 @@ from iommi.fragment import (
 from iommi.member import Members
 from iommi.part import Part
 from iommi.refinable import EvaluatedRefinable
+from iommi.shortcut import superinvoking_shortcut, with_defaults
 
 
 @with_meta
@@ -98,7 +99,7 @@ class Action(Fragment):
     display_name: str = EvaluatedRefinable()
     post_handler: Callable = Refinable()
 
-    @dispatch(
+    @with_defaults(
         tag='a',
         display_name=lambda action, **_: capitalize(action._name).replace('_', ' '),
     )
@@ -131,41 +132,36 @@ class Action(Fragment):
         return self.own_target_marker() in self.iommi_parent().iommi_parent()._request_data
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         tag='button',
     )
-    def button(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def button(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='button',
+    @with_defaults(
         attrs__accesskey='s',
         attrs__name=lambda action, **_: action.own_target_marker(),
         display_name=gettext_lazy('Submit'),
     )
-    def submit(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def submit(cls, **kwargs):
+        return cls.button(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='submit',
-    )
-    def primary(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    @with_defaults
+    def primary(cls, **kwargs):
+        return cls.submit(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='submit',
-    )
-    def delete(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    @with_defaults
+    def delete(cls, **kwargs):
+        return cls.submit(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        icon_classes=[],
-    )
-    def icon(cls, icon, *, display_name=None, call_target=None, icon_classes=None, **kwargs):
+    @with_defaults
+    def icon(cls, icon, *, display_name=None, icon_classes=None, **kwargs):
+        if icon_classes is None:
+            icon_classes = []
         icon_classes_str = ' '.join(['fa-' + icon_class for icon_class in icon_classes]) if icon_classes else ''
         if icon_classes_str:
             icon_classes_str = ' ' + icon_classes_str
@@ -173,7 +169,7 @@ class Action(Fragment):
             kwargs,
             display_name=format_html('<i class="fa fa-{}{}"></i> {}', icon, icon_classes_str, display_name),
         )
-        return call_target(**kwargs)
+        return cls(**kwargs)
 
 
 def group_actions(actions: Dict[str, Action]):

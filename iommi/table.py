@@ -1696,7 +1696,7 @@ class Table(Part, Tag):
             ))
 
             declared_filters = self.query.iommi_namespace.filters
-            self.query = self.query.refine_defaults(filters=declared_filters)
+            self.query = self.query.refine_from_table_defaults(filters=declared_filters)
 
             # Bulk
             field_class = self.get_meta().form_class.get_meta().member_class
@@ -1747,7 +1747,7 @@ class Table(Part, Tag):
                         display_name=gettext_lazy('Bulk delete'),
                         include=False,
                     ),
-                )).refine_defaults(
+                )).refine_from_table_defaults(
                     fields=declared_bulk_fields,
                 )
 
@@ -1763,7 +1763,7 @@ class Table(Part, Tag):
                 # explicitly added it again.
                 actions__submit=bulk_args['actions'].get('submit', None),
                 **bulk_args,
-            ).refine_defaults(
+            ).refine_from_table_defaults(
                 fields=declared_bulk_fields,
             )
 
