@@ -44,6 +44,7 @@ from iommi.refinable import (
     EvaluatedRefinable,
     RefinableMembers,
 )
+from iommi.shortcut import with_defaults
 
 _void_elements = [
     'area',
@@ -156,15 +157,15 @@ class Fragment(Part, Tag):
     template: Union[str, Template] = EvaluatedRefinable()
     children = RefinableMembers()
 
-    @dispatch(
+    @with_defaults(
         children=EMPTY,
         attrs__class=EMPTY,
         attrs__style=EMPTY,
     )
     def __init__(self, text=None, **kwargs):
-        if text is not None:
-            kwargs['children'].text = text
         super().__init__(**kwargs)
+        if text is not None:
+            self.refine_from_constructor(children__text=text)
 
     def on_refine_done(self):
         super().on_refine_done()

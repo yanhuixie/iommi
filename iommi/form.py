@@ -118,6 +118,8 @@ from iommi.refinable import (
 )
 
 # Prevent django templates from calling That Which Must Not Be Called
+from iommi.shortcut import with_defaults
+
 Namespace.do_not_call_in_templates = True
 
 
@@ -531,7 +533,14 @@ class Field(Part, Tag):
 
     group: str = EvaluatedRefinable()
 
-    @dispatch(
+    @with_defaults(
+        tag='div',
+        input__attrs__type='text',
+        input__tag='input',
+        label__tag='label',
+        non_editable_input__tag='span',
+        help__attrs__class__helptext=True,
+        help__tag='div',
         attr=MISSING,
         display_name=MISSING,
         attrs__class=EMPTY,
@@ -973,30 +982,30 @@ class Field(Part, Tag):
         )
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         input__attrs__type='hidden',
         attrs__style__display='none',
     )
-    def hidden(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def hidden(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         input__attrs__type='text',
     )
-    def text(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def text(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         input__tag='textarea',
         input__attrs__type=None,
         input__attrs__value=None,
         input__children__text=lambda field, **_: field.rendered_value,
         input__attrs__readonly=lambda field, **_: True if field.editable is False else None,
     )
-    def textarea(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def textarea(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
     @class_shortcut

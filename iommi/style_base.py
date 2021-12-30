@@ -154,13 +154,6 @@ base = Style(
                 template='iommi/form/heading.html',
             ),
         ),
-        tag='div',
-        input__attrs__type='text',
-        input__tag='input',
-        label__tag='label',
-        non_editable_input__tag='span',
-        help__attrs__class__helptext=True,
-        help__tag='div',
     ),
     Column=dict(
         shortcuts=dict(
