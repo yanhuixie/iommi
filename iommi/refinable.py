@@ -221,7 +221,7 @@ Available attributes:
         return self._refine(_description='member defaults', _defaults=True, **args)
 
     def refine_from_shortcut(self, **args):
-        return self._refine(_description='shortcut', _defaults=True, **args)
+        return self._refine(_description='shortcut', _defaults=False, **args)
 
     def refine_from_table_defaults(self, **args):
         return self._refine(_description='table defaults', _defaults=True, **args)

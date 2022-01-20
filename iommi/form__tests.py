@@ -80,6 +80,7 @@ from iommi.from_model import (
 from iommi.page import (
     Page,
 )
+from iommi.shortcut import with_defaults
 from tests.compat import RequestFactory
 from tests.helpers import (
     get_attrs,
@@ -192,6 +193,14 @@ def test_required_choice():
     assert form.is_target()
     assert form.is_valid(), form.get_errors()
     assert form.fields['c']._errors == set()
+
+
+def test_multi_choice_is_list():
+    f = Field.multi_choice(choices=['a', 'b', 'c']).refine_done()
+    import pprint
+    pprint.pprint(f.iommi_namespace.as_stack())
+    assert f.iommi_namespace.is_list
+    assert f.is_list
 
 
 def test_required_multi_choice():
@@ -2285,10 +2294,10 @@ def test_from_model_with_inheritance():
 
     class MyField(Field):
         @classmethod
-        @class_shortcut
-        def float(cls, call_target=None, **kwargs):
+        @with_defaults
+        def float(cls, **kwargs):
             was_called['MyField.float'] += 1
-            return call_target(**kwargs)
+            return cls(**kwargs)
 
     class MyForm(Form):
         class Meta:
@@ -2409,9 +2418,9 @@ def test_all_field_shortcuts():
 def test_shortcut_to_subclass():
     class MyField(Field):
         @classmethod
-        @class_shortcut
-        def my_shortcut(cls, call_target=None, **kwargs):
-            return call_target(
+        @with_defaults()
+        def my_shortcut(cls, **kwargs):
+            return cls(
                 **kwargs
             )  # pragma: no cover: we aren't testing that this shortcut is implemented correctly
 
@@ -2419,9 +2428,9 @@ def test_shortcut_to_subclass():
 
     class MyField(Field):
         @classmethod
-        @class_shortcut
-        def choices(cls, call_target=None, **kwargs):
-            return call_target(
+        @with_defaults
+        def choices(cls, **kwargs):
+            return cls(
                 **kwargs
             )  # pragma: no cover: we aren't testing that this shortcut is implemented correctly
 

@@ -281,9 +281,9 @@ def test_shortcut_to_superclass_two_calls2():
     assert isinstance(result, Bar)
     assert result.iommi_namespace.as_stack() == [
         ('constructor', {'w': 123}),
-        ('shortcut', {'y': 42}),
-        ('shortcut', {'x': 17}),
         ('shortcut', {'z': 4711}),
+        ('shortcut', {'x': 17}),
+        ('shortcut', {'y': 42}),
         ('base', {'v': 456}),
     ]
 
