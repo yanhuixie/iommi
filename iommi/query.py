@@ -94,6 +94,10 @@ from iommi.refinable import (
     EvaluatedRefinable,
     RefinableMembers,
 )
+from iommi.shortcut import (
+    superinvoking_shortcut,
+    with_defaults,
+)
 
 
 class QueryException(Exception):
@@ -232,7 +236,7 @@ class Filter(Part):
     is_valid_filter = Refinable()
     query_name = EvaluatedRefinable()
 
-    @dispatch(
+    @with_defaults(
         query_operator_for_field='=',
         attr=MISSING,
         search_fields=MISSING,
@@ -316,70 +320,65 @@ class Filter(Part):
         )
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         field__call_target__attribute='text',
         query_operator_for_field=':',
     )
-    def text(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def text(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='text',
-    )
-    def textarea(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    @with_defaults
+    def textarea(cls, **kwargs):
+        return cls.text(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         query_operator_to_q_operator=case_sensitive_query_operator_to_q_operator,
     )
-    def case_sensitive(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def case_sensitive(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         field__call_target__attribute='choice',
     )
-    def choice(cls, call_target=None, **kwargs):
+    def choice(cls, **kwargs):
         """
         Field that has one value out of a set.
         :type choices: list
         """
-        assert 'choices' in kwargs, 'To use Filter.choice, you must pass the choices list'
-        setdefaults_path(
-            kwargs,
-            dict(
-                field__choices=kwargs.get('choices'),
-            ),
+        instance = cls(**kwargs)
+        instance = instance.refine_from_shortcut(
+            field__choices=kwargs.get('choices'),
         )
-        return call_target(**kwargs)
+        # todo check this later
+        # assert 'choices' in kwargs, 'To use Filter.choice, you must pass the choices list'
+        return instance
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         field__call_target__attribute='multi_choice',
     )
-    def multi_choice(cls, call_target=None, **kwargs):
+    def multi_choice(cls, **kwargs):
         """
         Field that has one value out of a set.
         :type choices: list
         """
-        setdefaults_path(
-            kwargs,
-            dict(
-                field__choices=kwargs.get('choices'),
-            ),
+        instance = cls(**kwargs)
+        instance = instance.refine_from_shortcut(
+            field__choices=kwargs.get('choices'),
         )
-        return call_target(**kwargs)
+        return instance
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         field__call_target__attribute='choice_queryset',
         query_operator_to_q_operator=lambda op: 'exact',
         value_to_q=choice_queryset_value_to_q,
         is_valid_filter=choice_queryset__is_valid_filter,
     )
-    def choice_queryset(cls, choices: QuerySet, call_target=None, **kwargs):
+    def choice_queryset(cls, choices: QuerySet, **kwargs):
         """
         Field that has one value out of a set.
         """
@@ -397,138 +396,132 @@ class Filter(Part):
                 choices=choices,
             ),
         )
-        return call_target(**kwargs)
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute="choice_queryset",
+    @with_defaults(
         field__call_target__attribute='multi_choice_queryset',
     )
-    def multi_choice_queryset(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def multi_choice_queryset(cls, **kwargs):
+        return cls.choice_queryset(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         field__call_target__attribute='boolean',
         parse=bool_parse,
         unary=True,
         query_operator_to_q_operator=boolean__query_operator_to_q_operator,
     )
-    def boolean(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def boolean(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         field__call_target__attribute='boolean_tristate',
         parse=boolean_tristate__parse,
         query_operator_to_q_operator=boolean__query_operator_to_q_operator,
         unary=True,
     )
-    def boolean_tristate(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def boolean_tristate(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         field__call_target__attribute='number',
     )
-    def number(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def number(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='number',
+    @with_defaults(
         field__call_target__attribute='integer',
         parse=int_parse,
     )
-    def integer(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def integer(cls, **kwargs):
+        return cls.number(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='number',
+    @with_defaults(
         field__call_target__attribute='float',
         parse=float_parse,
     )
-    def float(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def float(cls, **kwargs):
+        return cls.number(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         field__call_target__attribute='url',
     )
-    def url(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def url(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         field__call_target__attribute='time',
         parse=time_parse,
     )
-    def time(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def time(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         field__call_target__attribute='datetime',
         parse=datetime_parse,
     )
-    def datetime(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def datetime(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         field__call_target__attribute='date',
         parse=date_parse,
     )
-    def date(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def date(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         field__call_target__attribute='email',
     )
-    def email(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def email(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='number',
+    @with_defaults(
         field__call_target__attribute='decimal',
     )
-    def decimal(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def decimal(cls, **kwargs):
+        return cls.number(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         field__call_target__attribute='file',
     )
-    def file(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def file(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='choice_queryset',
+    @with_defaults(
         field__call_target__attribute='foreign_key',
     )
-    def foreign_key(cls, model_field, call_target, **kwargs):
+    def foreign_key(cls, model_field, **kwargs):
         setdefaults_path(
             kwargs,
             choices=model_field.foreign_related_fields[0].model.objects.all(),
         )
-        return call_target(model_field=model_field, **kwargs)
+        return cls.choice_queryset(model_field=model_field, **kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='multi_choice_queryset',
+    @with_defaults(
         field__call_target__attribute='many_to_many',
     )
-    def many_to_many(cls, call_target, model_field, **kwargs):
+    def many_to_many(cls, model_field, **kwargs):
         setdefaults_path(
             kwargs,
             choices=model_field.remote_field.model.objects.all(),
             extra__django_related_field=True,
         )
-        return call_target(model_field=model_field, **kwargs)
+        return cls.multi_choice_queryset(model_field=model_field, **kwargs)
 
 
 Filter.value_to_q.iommi_needs_attr = True
