@@ -42,7 +42,6 @@ from django.utils.translation import (
 )
 from math import ceil
 from tri_declarative import (
-    class_shortcut,
     declarative,
     dispatch,
     EMPTY,
@@ -138,6 +137,7 @@ from iommi.traversable import (
     Traversable,
 )
 from ._db_compat import base_defaults_factory
+from .shortcut import with_defaults
 
 LAST = LAST
 
@@ -358,7 +358,7 @@ class Column(Part):
     data_retrieval_method = EvaluatedRefinable()
     render_column: bool = EvaluatedRefinable()
 
-    @dispatch(
+    @with_defaults(
         attr=MISSING,
         sort_default_desc=False,
         sortable=lambda column, **_: column.attr is not None,
@@ -483,7 +483,7 @@ class Column(Part):
         )
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         display_name='',
         cell__value=lambda table, **_: True,
         cell__format=default_icon__cell__format,
@@ -491,7 +491,7 @@ class Column(Part):
         extra__icon_attrs__style=EMPTY,
         attr=None,
     )
-    def icon(cls, *args, call_target=None, **kwargs):
+    def icon(cls, *args, **kwargs):
         """
         Shortcut to create font awesome-style icons.
 
@@ -499,69 +499,67 @@ class Column(Part):
         """
         assert len(args) in (0, 1), "You can only pass 1 positional argument: icon, or you can pass no arguments."
 
+        instance = cls(**kwargs)
         if args:
-            setdefaults_path(kwargs, dict(extra__icon=args[0]))
-
-        return call_target(**kwargs)
+            instance = instance.refine_from_shortcut(
+                extra__icon=args[0],
+            )
+        return instance
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='icon',
+    @with_defaults(
         cell__url=lambda row, **_: row.get_absolute_url() + 'edit/',
         display_name=gettext_lazy('Edit'),
     )
-    def edit(cls, call_target=None, **kwargs):
+    def edit(cls, **kwargs):
         """
         Shortcut for creating a clickable edit icon. The URL defaults to `your_object.get_absolute_url() + 'edit/'`. Specify the option cell__url to override.
         """
-        return call_target(**kwargs)
+        return cls.icon(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='icon',
+    @with_defaults(
         cell__url=lambda row, **_: row.get_absolute_url() + 'delete/',
         display_name=gettext_lazy('Delete'),
     )
-    def delete(cls, call_target=None, **kwargs):
+    def delete(cls, **kwargs):
         """
         Shortcut for creating a clickable delete icon. The URL defaults to `your_object.get_absolute_url() + 'delete/'`. Specify the option cell__url to override.
         """
-        return call_target(**kwargs)
+        return cls.icon(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='icon',
+    @with_defaults(
         cell__url=lambda row, **_: row.get_absolute_url() + 'download/',
         cell__value=lambda row, **_: getattr(row, 'pk', False),
         display_name=gettext_lazy('Download'),
     )
-    def download(cls, call_target=None, **kwargs):
+    def download(cls, **kwargs):
         """
         Shortcut for creating a clickable download icon. The URL defaults to `your_object.get_absolute_url() + 'download/'`. Specify the option cell__url to override.
         """
-        return call_target(**kwargs)
+        return cls.icon(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='icon',
+    @with_defaults(
         cell__url=lambda row, **_: row.get_absolute_url() + 'run/',
         display_name=gettext_lazy('Run'),
     )
-    def run(cls, call_target=None, **kwargs):
+    def run(cls, **kwargs):
         """
         Shortcut for creating a clickable run icon. The URL defaults to `your_object.get_absolute_url() + 'run/'`. Specify the option cell__url to override.
         """
-        return call_target(**kwargs)
+        return cls.icon(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         header__template='iommi/table/select_column_header.html',
         sortable=False,
         filter__is_valid_filter=lambda **_: (True, ''),
         filter__field__include=False,
         attr=None,
     )
-    def select(cls, checkbox_name='pk', checked=lambda row, **_: False, call_target=None, **kwargs):
+    def select(cls, checkbox_name='pk', checked=lambda row, **_: False, **kwargs):
         """
         Shortcut for a column of checkboxes to select rows. This is useful for implementing bulk operations.
 
@@ -594,35 +592,34 @@ class Column(Part):
             return mark_safe(f'<input type="checkbox"{checked_str} class="checkbox" name="{checkbox_name}_{row_id}" />')
 
         setdefaults_path(kwargs, dict(cell__value=cell__value))
-        return call_target(**kwargs)
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         filter__call_target__attribute='boolean',
         filter__field__call_target__attribute='boolean_tristate',
         bulk__call_target__attribute='boolean',
         cell__format=lambda value, **_: mark_safe('<i class="fa fa-check" title="Yes"></i>') if value else '',
     )
-    def boolean(cls, call_target=None, **kwargs):
+    def boolean(cls, **kwargs):
         """
         Shortcut to render booleans as a check mark if true or blank if false.
         """
-        return call_target(**kwargs)
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='boolean',
+    @with_defaults(
         filter__call_target__attribute='boolean_tristate',
     )
-    def boolean_tristate(cls, call_target, **kwargs):
-        return call_target(**kwargs)
+    def boolean_tristate(cls, **kwargs):
+        return cls.boolean(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         bulk__call_target__attribute='choice',
         filter__call_target__attribute='choice',
     )
-    def choice(cls, call_target=None, **kwargs):
+    def choice(cls, **kwargs):
         assert 'choices' in kwargs, 'To use Column.choice, you must pass the choices list'
         choices = kwargs['choices']
         setdefaults_path(
@@ -632,11 +629,10 @@ class Column(Part):
                 filter__choices=choices,
             ),
         )
-        return call_target(**kwargs)
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='choice',
+    @with_defaults(
         bulk__call_target__attribute='choice_queryset',
         filter__call_target__attribute='choice_queryset',
     )
@@ -648,15 +644,14 @@ class Column(Part):
                 filter__model=kwargs.get('model'),
             ),
         )
-        return call_target(**kwargs)
+        return cls.choice(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='choice_queryset',
+    @with_defaults(
         bulk__call_target__attribute='multi_choice_queryset',
         filter__call_target__attribute='multi_choice_queryset',
     )
-    def multi_choice_queryset(cls, call_target, **kwargs):
+    def multi_choice_queryset(cls, **kwargs):
         setdefaults_path(
             kwargs,
             dict(
@@ -664,15 +659,14 @@ class Column(Part):
                 filter__model=kwargs.get('model'),
             ),
         )
-        return call_target(**kwargs)
+        return cls.choice_queryset(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='choice',
+    @with_defaults(
         bulk__call_target__attribute='multi_choice',
         filter__call_target__attribute='multi_choice',
     )
-    def multi_choice(cls, call_target, **kwargs):
+    def multi_choice(cls, **kwargs):
         setdefaults_path(
             kwargs,
             dict(
@@ -680,26 +674,24 @@ class Column(Part):
                 filter__model=kwargs.get('model'),
             ),
         )
-        return call_target(**kwargs)
+        return cls.choice(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         bulk__call_target__attribute='text',
         filter__call_target__attribute='text',
     )
-    def text(cls, call_target, **kwargs):
-        return call_target(**kwargs)
+    def text(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='text',
-    )
-    def textarea(cls, call_target, **kwargs):
-        return call_target(**kwargs)
+    @with_defaults
+    def textarea(cls, **kwargs):
+        return cls.text(**kwargs)
 
     @classmethod
-    @class_shortcut
-    def link(cls, call_target, **kwargs):
+    @with_defaults
+    def link(cls, **kwargs):
         # Shortcut for creating a cell that is a link. The URL is the result of calling `get_absolute_url()` on the object.
         def link_cell_url(column, row, **_):
             r = getattr_path(row, column.attr)
@@ -711,96 +703,93 @@ class Column(Part):
                 cell__url=link_cell_url,
             ),
         )
-        return call_target(**kwargs)
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut
-    def number(cls, call_target, **kwargs):
-        return call_target(**kwargs)
+    @with_defaults
+    def number(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='number',
+    @with_defaults(
         filter__call_target__attribute='float',
         bulk__call_target__attribute='float',
     )
-    def float(cls, call_target, **kwargs):
-        return call_target(**kwargs)
+    def float(cls, **kwargs):
+        return cls.number(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='number',
+    @with_defaults(
         filter__call_target__attribute='integer',
         bulk__call_target__attribute='integer',
     )
-    def integer(cls, call_target, **kwargs):
-        return call_target(**kwargs)
+    def integer(cls, **kwargs):
+        return cls.number(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         filter__query_operator_for_field=':',
     )
-    def substring(cls, call_target, **kwargs):
-        return call_target(**kwargs)
+    def substring(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         filter__call_target__attribute='date',
         filter__query_operator_to_q_operator=lambda op: {'=': 'exact', ':': 'contains'}.get(op)
         or Q_OPERATOR_BY_QUERY_OPERATOR[op],
         bulk__call_target__attribute='date',
     )
-    def date(cls, call_target, **kwargs):
-        return call_target(**kwargs)
+    def date(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         filter__call_target__attribute='datetime',
         filter__query_operator_to_q_operator=lambda op: {'=': 'exact', ':': 'contains'}.get(op)
         or Q_OPERATOR_BY_QUERY_OPERATOR[op],
         bulk__call_target__attribute='datetime',
     )
-    def datetime(cls, call_target, **kwargs):
-        return call_target(**kwargs)
+    def datetime(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         filter__call_target__attribute='time',
         filter__query_operator_to_q_operator=lambda op: {'=': 'exact', ':': 'contains'}.get(op)
         or Q_OPERATOR_BY_QUERY_OPERATOR[op],
         bulk__call_target__attribute='time',
     )
-    def time(cls, call_target, **kwargs):
-        return call_target(**kwargs)
+    def time(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         filter__call_target__attribute='email',
         bulk__call_target__attribute='email',
     )
-    def email(cls, call_target, **kwargs):
-        return call_target(**kwargs)
+    def email(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         bulk__call_target__attribute='decimal',
         filter__call_target__attribute='decimal',
     )
-    def decimal(cls, call_target, **kwargs):
-        return call_target(**kwargs)
+    def decimal(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         bulk__call_target__attribute='file',
         filter__call_target__attribute='file',
         cell__format=lambda value, **_: str(value),
     )
-    def file(cls, call_target, **kwargs):
-        return call_target(**kwargs)
+    def file(cls, **kwargs):
+        return cls(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='multi_choice_queryset',
+    @with_defaults(
         bulk__call_target__attribute='many_to_many',
         filter__call_target__attribute='many_to_many',
         cell__format=lambda value, **_: ', '.join(['%s' % x for x in value.all()]),
@@ -808,23 +797,22 @@ class Column(Part):
         sortable=False,
         extra__django_related_field=True,
     )
-    def many_to_many(cls, call_target, model_field, **kwargs):
+    def many_to_many(cls, model_field, **kwargs):
         setdefaults_path(
             kwargs,
             choices=model_field.remote_field.model.objects.all(),
             model_field=model_field.remote_field,
         )
-        return call_target(**kwargs)
+        return cls.multi_choice_queryset(**kwargs)
 
     @classmethod
-    @class_shortcut(
-        call_target__attribute='choice_queryset',
+    @with_defaults(
         bulk__call_target__attribute='foreign_key',
         filter__call_target__attribute='foreign_key',
         data_retrieval_method=DataRetrievalMethods.select,
         sort_key=foreign_key__sort_key,
     )
-    def foreign_key(cls, call_target, model_field, **kwargs):
+    def foreign_key(cls, model_field, **kwargs):
         remote_model = model_field.remote_field.model
         if hasattr(remote_model, 'get_absolute_url'):
             setdefaults_path(
@@ -835,7 +823,7 @@ class Column(Part):
             kwargs,
             choices=remote_model.objects.all(),
         )
-        return call_target(model_field=model_field, **kwargs)
+        return cls.choice_queryset(model_field=model_field, **kwargs)
 
 
 @with_meta
@@ -1778,15 +1766,15 @@ class Table(Part, Tag):
         super(Table, self).on_refine_done()
 
     @classmethod
-    @class_shortcut(
+    @with_defaults(
         tag='div',
         tbody__tag='div',
         cell__tag=None,
         row__tag='div',
         header__template=None,
     )
-    def div(cls, call_target=None, **kwargs):
-        return call_target(**kwargs)
+    def div(cls, **kwargs):
+        return cls(**kwargs)
 
     @property
     def paginator(self):
