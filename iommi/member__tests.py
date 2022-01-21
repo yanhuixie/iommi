@@ -13,6 +13,7 @@ from iommi import (
     Style,
 )
 from iommi.member import ForbiddenNamesException
+from iommi.shortcut import with_defaults
 from tests.helpers import (
     Basket,
     Fruit,
@@ -270,12 +271,12 @@ def test_precedence_override_style_with_shortcut(foo_style):
             foo = html.div('from declaration')
 
             @classmethod
-            @class_shortcut(
+            @with_defaults(
                 extra__foo='from shortcut',
                 parts__foo=html.div('from shortcut'),
             )
-            def shortcut(cls, call_target, **kwargs):
-                return call_target(**kwargs)
+            def shortcut(cls, **kwargs):
+                return cls(**kwargs)
 
         my_page = MyPage.shortcut().bind()
         assert my_page.extra.foo == 'from shortcut'

@@ -19,6 +19,7 @@ from iommi import (
 from iommi.attrs import render_attrs
 from iommi.base import items
 from iommi.refinable import RefinableObject
+from iommi.shortcut import with_defaults
 from iommi.style import (
     get_global_style,
     get_style_data_for_object,
@@ -49,9 +50,9 @@ def test_style():
         bar = Refinable()
 
         @classmethod
-        @class_shortcut
-        def shortcut1(cls, call_target, **kwargs):
-            return call_target(**kwargs)
+        @with_defaults
+        def shortcut1(cls, **kwargs):
+            return cls(**kwargs)
 
         def items(self):
             return dict(foo=self.foo, bar=self.bar)
@@ -62,9 +63,9 @@ def test_style():
             super().__init__(**kwargs)
 
         @classmethod
-        @class_shortcut(call_target__attribute='shortcut1')
-        def shortcut2(cls, call_target, **kwargs):
-            return call_target(**kwargs)
+        @with_defaults
+        def shortcut2(cls, **kwargs):
+            return cls.shortcut1(**kwargs)
 
     base = Style(
         A=dict(
@@ -314,10 +315,10 @@ def test_reinvokable_new_defaults_recurse():
 def test_reinvoke_new_default_change_shortcut():
     class RefinableObjectWithShortcut(MyRefinableObject):
         @classmethod
-        @class_shortcut
-        def shortcut(cls, call_target=None, **kwargs):
+        @with_defaults
+        def shortcut(cls, **kwargs):
             kwargs['baz'] = 'baz'
-            return call_target(**kwargs)
+            return cls(**kwargs)
 
     x = RefinableObjectWithShortcut.shortcut(bar='bar').refine_done()
     assert x.bar == 'bar'
