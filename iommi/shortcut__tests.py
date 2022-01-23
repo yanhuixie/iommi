@@ -50,7 +50,7 @@ def test_is_shortcut_function():
             pass
 
         @classmethod
-        @class_shortcut
+        @with_defaults
         def i(cls):
             pass
 
@@ -69,97 +69,27 @@ def test_get_shortcuts_by_name():
             pass
 
         @classmethod
-        @class_shortcut
+        @with_defaults()
         def c(cls):
             pass
 
     assert get_shortcuts_by_name(Bar) == dict(a=Bar.a, b=Bar.b, c=Bar.c)
 
 
-def test_class_shortcut():
-    @with_meta
-    class Foo:
-        @dispatch(
-            bar=17
-        )
-        def __init__(self, bar, **_):
-            self.bar = bar
-
-        @classmethod
-        @class_shortcut
-        def shortcut(cls, **args):
-            return cls(**args)
-
-        # noinspection PyUnusedLocal
-        @classmethod
-        @class_shortcut(
-            foo=7
-        )
-        def shortcut2(cls, call_target, foo):
-            del call_target
-            return foo
-
-    class MyFoo(Foo):
-        class Meta:
-            bar = 42
-
-    assert Foo.shortcut().bar == 17
-    assert MyFoo.shortcut().bar == 42
-    assert MyFoo.shortcut2() == 7
-
-
-def test_class_shortcut_class_call_target():
-    @with_meta
-    class Foo:
-        # noinspection PyUnusedLocal
-        @classmethod
-        @class_shortcut(
-            foo=7
-        )
-        def shortcut(cls, call_target, foo):
-            del call_target
-            return foo
-
-    class MyFoo(Foo):
-        @classmethod
-        @class_shortcut(
-            foo=5
-        )
-        def shortcut(cls, call_target, foo):
-            del call_target
-            return foo
-
-        @classmethod
-        @class_shortcut(
-            call_target__attribute='shortcut'
-        )
-        def shortcut2(cls, call_target, **kwargs):
-            return call_target(**kwargs)
-
-        @classmethod
-        @class_shortcut(
-            call_target=Foo.shortcut
-        )
-        def shortcut3(cls, call_target, **kwargs):
-            return call_target(**kwargs)
-
-    assert Foo.shortcut() == 7
-    assert MyFoo.shortcut() == 5
-    assert MyFoo.shortcut2() == 5
-    assert MyFoo.shortcut3() == 7
-
-
 def test_class_shortcut_shortcut():
-    class Foo:
+    class Foo(RefinableObject):
+        x = Refinable()
+        y = Refinable()
+
         def __init__(self, **kwargs):
-            self.kwargs = kwargs
+            super(Foo, self).__init__(**kwargs)
 
         @classmethod
-        @class_shortcut(
+        @with_defaults(
             x=17
         )
-        def shortcut1(cls, call_target=None, **kwargs):
-            return call_target(**kwargs)
+        def shortcut1(cls, **kwargs):
+            return cls(**kwargs)
 
     Foo.shortcut2 = Shortcut(
         y=42,
@@ -167,33 +97,33 @@ def test_class_shortcut_shortcut():
         call_target__attribute='shortcut1',
     )
 
-    assert Foo.shortcut1().kwargs == {'x': 17}
-    assert Foo.shortcut2().kwargs == {'x': 17, 'y': 42}
+    assert Foo.shortcut1().iommi_namespace == {'x': 17}
+    assert Foo.shortcut2().iommi_namespace == {'x': 17, 'y': 42}
 
 
 def test_shortcut_to_superclass():
-    class Foo:
+    class Foo(RefinableObject):
         def __init__(self, **kwargs):
-            self.kwargs = kwargs
+            super(Foo, self).__init__(**kwargs)
 
         @classmethod
-        @class_shortcut(
+        @with_defaults(
             x=17
         )
-        def baz(cls, call_target, **kwargs):
-            return call_target(**kwargs)
+        def baz(cls, **kwargs):
+            return cls(**kwargs)
 
     class Bar(Foo):
         @classmethod
-        @class_shortcut(
-            call_target__attribute='baz',
+        @with_defaults(
             y=42
         )
-        def baz(cls, call_target, **kwargs):
-            return call_target(**kwargs)
+        @superinvoking_shortcut
+        def baz(cls, super_shortcut, **kwargs):
+            return super_shortcut(**kwargs)
 
     result = Bar.baz()
-    assert result.kwargs == dict(x=17, y=42)
+    assert result.iommi_namespace == dict(x=17, y=42)
     assert isinstance(result, Bar)
 
 
@@ -207,30 +137,55 @@ def test_shortcut_to_superclass_two_calls():
         @with_defaults(
             z=4711
         )
-        @class_shortcut
-        def buzz(cls, call_target, **kwargs):
-            return call_target(**kwargs)
+        def buzz(cls, **kwargs):
+            return cls(**kwargs)
 
         @classmethod
         @with_defaults(
             x=17
         )
-        @class_shortcut(
-            call_target__attribute='buzz',
-        )
-        def baz(cls, call_target, **kwargs):
-            return call_target(**kwargs)
+        def baz(cls, **kwargs):
+            return cls.buzz(**kwargs)
 
     class Bar(Foo):
         @classmethod
         @with_defaults(
             y=42
         )
-        @class_shortcut(
-            call_target__attribute='baz',
-        )
-        def baz(cls, call_target, **kwargs):
-            return call_target(**kwargs)
+        @superinvoking_shortcut
+        def baz(cls, super_shortcut, **kwargs):
+            return super_shortcut(**kwargs)
+
+    result = Bar.baz()
+    assert result.iommi_namespace == dict(x=17, y=42, z=4711)
+    assert isinstance(result, Bar)
+
+
+def test_shortcut_to_superclass_two_calls_no_decorator():
+    class Foo(RefinableObject):
+        x = Refinable()
+        y = Refinable()
+        z = Refinable()
+
+        @classmethod
+        @with_defaults
+        def buzz(cls, **kwargs):
+            result = cls(**kwargs)
+            return result.refine_from_shortcut(z=4711)
+
+        @classmethod
+        @with_defaults
+        def baz(cls, **kwargs):
+            result = cls.buzz(**kwargs)
+            return result.refine_from_shortcut(x=17)
+
+    class Bar(Foo):
+        @classmethod
+        @with_defaults
+        @superinvoking_shortcut
+        def baz(cls, super_shortcut, **kwargs):
+            result = super_shortcut(**kwargs)
+            return result.refine_from_shortcut(y=42)
 
     result = Bar.baz()
     assert result.iommi_namespace == dict(x=17, y=42, z=4711)

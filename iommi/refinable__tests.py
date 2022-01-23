@@ -9,6 +9,7 @@ from tri_declarative import (
 
 from iommi.refinable import (
     prefixes,
+    refinable,
     Refinable,
     RefinableMembers,
     RefinableObject,
@@ -269,3 +270,36 @@ def test_refine_done_not_mutating():
 def test_namespace_kwarg():
     r = RefinableObject(namespace=dict(foo__bar=3))
     assert r.iommi_namespace.foo.bar == 3
+
+
+def test_subclass_override():
+    class MyRefinable(RefinableObject):
+        @staticmethod
+        @refinable
+        def foo():
+            return 'MyRefinable'
+
+    assert MyRefinable(foo=lambda: 'from argument').refine_done().foo() == 'from argument'
+    assert MyRefinable().refine_done().foo() == 'MyRefinable'
+
+    class MySubclass(MyRefinable):
+        @staticmethod
+        @refinable
+        def foo():
+            return 'MySubclass'
+
+    assert MySubclass(foo=lambda: 'from argument').refine_done().foo() == 'from argument'
+    assert MySubclass().refine_done().foo() == 'MySubclass'
+
+    class MySubclass(MyRefinable):
+        # Somewhat unexpected the base class refinable shadows the subclass override if the override is not decorated
+        # @refinable
+        @staticmethod
+        def foo():
+            return 'MySubclass'
+
+    # Still refinable
+    assert MySubclass(foo=lambda: 'from argument').refine_done().foo() == 'from argument'
+    # But the default is from the base class having the @refinable decorator
+    assert MySubclass().refine_done().foo() == 'MyRefinable'
+    # assert MySubclass().refine_done().foo() == 'MySubclass'
